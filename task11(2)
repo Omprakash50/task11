@@ -1,0 +1,39 @@
+- hosts: apache
+  vars_prompt:
+    - name: doc_root
+      prompt: "Type Document root"
+      private: no
+
+    - name: http_port
+      prompt: "Give Port No"
+      private: no
+
+  tasks:
+  - name: Download Httpd
+    package:
+      name: httpd
+      state: present
+  
+  - name: Creating Document root
+    file:
+      path: '{{doc_root}}'
+      state: directory
+  
+  - name: Configuration
+    template:
+      src: 'op.conf.j2'
+      dest: '/etc/httpd/conf.d/op.conf'
+    notify:
+    - Restart Apache
+
+  - name: Copying App
+    copy:
+      src: 'index.html'
+      dest: '{{doc_root}}/index.html'    
+      
+  handlers:
+    - name: Restart Apache
+      service:
+        name: httpd
+        state: restarted
+        enabled: yes
