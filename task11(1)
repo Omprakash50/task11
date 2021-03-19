@@ -1,0 +1,87 @@
+- hosts: all
+  tasks:
+  - name: Downloading Hadoop
+    get_url:
+      url: https://archive.apache.org/dist/hadoop/core/hadoop-1.2.1/hadoop-1.2.1-1.x86_64.rpm
+      dest: /home/ec2-user/
+  
+  - name: Download Java
+    get_url:
+      headers: 
+        Cookie: "oraclelicense=accept-securebackup-cookie"
+      url: http://download.oracle.com/otn-pub/java/jdk/8u131-b11/d54c1d3a095b4ff2b6607d096fa80163/jdk-8u131-linux-x64.rpm
+      dest: /home/ec2-user/
+
+  - name: Installing Java
+    yum:
+      name: /home/ec2-user/jdk-8u131-linux-x64.rpm
+      state: present
+      disable_gpg_check: yes
+
+  - name: Installing Hadoop
+    command: rpm -ivh hadoop-1.2.1-1.x86_64.rpm --force
+
+- hosts: namenode
+  tasks:
+  - name: Configurating Namenode
+    template:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+    loop:
+      - { src: 'namenode/core-site.xml.j2', dest: '/etc/hadoop/core-site.xml' }
+      - { src: 'namenode/hdfs-site.xml.j2', dest: '/etc/hadoop/hdfs-site.xml' }
+
+  - name: Creates directory
+    file:
+      path: /nn
+      state: directory
+
+  - name: "Formatting Namenode"
+    shell: "echo Y |  hadoop namenode -format"
+    ignore_errors: yes
+
+
+  - name: "Starting the namenode"
+    shell: "hadoop-daemon.sh start namenode"
+    ignore_errors: yes
+  
+  - name: "checking status of datanode"
+    shell: "jps"
+    register: jps
+
+  - debug:
+      msg: "{{jps['stdout_lines']}}"
+
+- hosts: datanode
+  tasks:
+  - name: Configurating Datanode
+    template:
+      src: "{{ item.src }}"
+      dest: "{{ item.dest }}"
+    loop:
+      - { src: 'datanode/core-site.xml.j2', dest: '/etc/hadoop/core-site.xml' }
+      - { src: 'datanode/hdfs-site.xml.j2', dest: '/etc/hadoop/hdfs-site.xml' }
+  - name: Creates directory
+    file:
+      path: /dn2
+      state: directory 
+
+  - name: "Starting the datanode"
+    shell: "hadoop-daemon.sh start datanode"
+    ignore_errors: yes
+
+  - name: "checking status of datanode"
+    shell: "jps"
+    register: jps
+
+  - debug:
+      msg: "{{jps['stdout_lines']}}"
+
+- hosts: namenode
+  tasks:
+  - name: Hadoop Report
+    shell: "hadoop dfsadmin -report"
+    register: report
+
+  - debug:
+          msg: "{{report['stdout_lines']}}"
